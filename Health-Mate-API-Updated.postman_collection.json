@@ -1,0 +1,807 @@
+{
+  "info": {
+    "_postman_id": "health-mate-api-v2",
+    "name": "Health-Mate API - Updated",
+    "description": "Wellness Nudge Platform API with JWT Authentication - Verified & Tested",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Johnson\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/signup",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "  pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "  pm.environment.set('userId', jsonData.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Smith\",\n  \"avatar\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.data.accessToken);",
+                  "  pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Profile",
+      "item": [
+        {
+          "name": "Create Health Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"age\": 28,\n  \"gender\": \"female\",\n  \"height\": 165,\n  \"weight\": 65,\n  \"isSmoker\": false,\n  \"exerciseFamiliarity\": \"intermediate\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health-profile",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "health-profile"]
+            }
+          }
+        },
+        {
+          "name": "Get Health Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health-profile",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "health-profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Health Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weight\": 70,\n  \"targetCalories\": 2200\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health-profile",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "health-profile"]
+            }
+          }
+        },
+        {
+          "name": "Get BMI Information",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/health-profile/bmi",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "health-profile", "bmi"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Work Sessions",
+      "item": [
+        {
+          "name": "Start Work Session",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration\": 25,\n  \"workDuration\": 25,\n  \"breaksScheduled\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-sessions",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "work-sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get All Work Sessions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-sessions",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "work-sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get Work Session by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-sessions/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "work-sessions", ":id"]
+            }
+          }
+        },
+        {
+          "name": "Update Work Session",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"breaksTaken\": 2,\n  \"hydrationRemindersActedOn\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-sessions/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "work-sessions", ":id"]
+            }
+          }
+        },
+        {
+          "name": "End Work Session",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/work-sessions/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "work-sessions", ":id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activities",
+      "item": [
+        {
+          "name": "Log Hydration",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 250,\n  \"date\": \"2026-03-11T00:00:00.000Z\",\n  \"notes\": \"Morning water intake\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities/hydration",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "activities", "hydration"]
+            }
+          }
+        },
+        {
+          "name": "Log Exercise",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exerciseType\": \"running\",\n  \"duration\": 30,\n  \"intensity\": \"medium\",\n  \"calories\": 300\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities/exercise",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "activities", "exercise"]
+            }
+          }
+        },
+        {
+          "name": "Log Break",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"INSERT_SESSION_ID\",\n  \"breakType\": \"stretching\",\n  \"duration\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities/breaks",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "activities", "breaks"]
+            }
+          }
+        },
+        {
+          "name": "Log Smoking",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cigarettesSmoked\": 0,\n  \"cravingLevel\": 2,\n  \"date\": \"2026-03-11T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities/smoking",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "activities", "smoking"]
+            }
+          }
+        },
+        {
+          "name": "Get Hydration History",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities/hydration?limit=20&page=1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "activities", "hydration"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "page", "value": "1"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gamification",
+      "item": [
+        {
+          "name": "Get User Points",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gamification/points",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "gamification", "points"]
+            }
+          }
+        },
+        {
+          "name": "Get Achievements",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gamification/achievements",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "gamification", "achievements"]
+            }
+          }
+        },
+        {
+          "name": "Get Streaks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gamification/streaks",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "gamification", "streaks"]
+            }
+          }
+        },
+        {
+          "name": "Get User Tier",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gamification/tier",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "gamification", "tier"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Leaderboards",
+      "item": [
+        {
+          "name": "Get Global Leaderboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboards/global?limit=20&page=1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "leaderboards", "global"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "page", "value": "1"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Leaderboard by Tier",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboards/tier?tier=bronze&limit=20&page=1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "leaderboards", "tier"],
+              "query": [
+                {"key": "tier", "value": "bronze"},
+                {"key": "limit", "value": "20"},
+                {"key": "page", "value": "1"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Ranking",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboards/me",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "leaderboards", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Local Leaderboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboards/local?groupId=group-1&limit=20&page=1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "leaderboards", "local"],
+              "query": [
+                {"key": "groupId", "value": "group-1"},
+                {"key": "limit", "value": "20"},
+                {"key": "page", "value": "1"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Peer Challenges",
+      "item": [
+        {
+          "name": "Create Peer Challenge",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"group-1\",\n  \"groupName\": \"Wellness Warriors\",\n  \"creatorId\": \"{{userId}}\",\n  \"members\": [\"MEMBER_ID_2\"],\n  \"challengeType\": \"exercise\",\n  \"startDate\": \"2026-03-12T00:00:00.000Z\",\n  \"endDate\": \"2026-03-19T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/peer-challenges",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "peer-challenges"]
+            }
+          }
+        },
+        {
+          "name": "Get User Peer Challenges",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/peer-challenges",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "peer-challenges"]
+            }
+          }
+        },
+        {
+          "name": "Get Challenge by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/peer-challenges/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "peer-challenges", ":id"]
+            }
+          }
+        },
+        {
+          "name": "Update Challenge",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"members\": [\"MEMBER_ID_2\", \"MEMBER_ID_3\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/peer-challenges/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "peer-challenges", ":id"]
+            }
+          }
+        },
+        {
+          "name": "Delete Challenge",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/peer-challenges/:id",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "peer-challenges", ":id"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reminders",
+      "item": [
+        {
+          "name": "Get Reminder Settings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reminders/schedule",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "reminders", "schedule"]
+            }
+          }
+        },
+        {
+          "name": "Update Reminder Settings",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reminders\": [\n    {\"type\": \"hydration\", \"enabled\": true},\n    {\"type\": \"exercise\", \"enabled\": true},\n    {\"type\": \"work_session\", \"enabled\": false},\n    {\"type\": \"smoking_avoidance\", \"enabled\": true}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reminders/schedule",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "reminders", "schedule"]
+            }
+          }
+        },
+        {
+          "name": "Send Test Reminder",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+            },
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reminders/test/hydration",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["api", "v1", "reminders", "test", "hydration"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
