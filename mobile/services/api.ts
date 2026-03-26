@@ -68,7 +68,7 @@ function resolveBaseUrl(): string {
     return trimTrailingSlash(envUrl);
   }
 
-  const host = Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  const host = Platform.OS === "android" ? "192.168.31.96" : "localhost";
   return `http://${host}:${API_PORT}${API_PREFIX}`;
 }
 
