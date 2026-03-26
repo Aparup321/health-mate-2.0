@@ -660,6 +660,8 @@ function BreaksTab() {
   const [activeBreak, setActiveBreak] = useState<BreakType | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [isLogging, setIsLogging] = useState(false);
+  const [customDuration, setCustomDuration] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useFocusEffect(
@@ -704,6 +706,54 @@ function BreaksTab() {
     setCountdown(0);
   }
 
+  function startCustomBreak() {
+    const mins = parseInt(customDuration, 10);
+    if (isNaN(mins) || mins <= 0) {
+      Alert.alert("Invalid Duration", "Please enter a valid number of minutes");
+      return;
+    }
+    if (mins > 30) {
+      Alert.alert("Duration Too Long", "You cannot take a break greater than 30 minutes");
+      return;
+    }
+    const secs = mins * 60;
+    setActiveBreak("other");
+    setCountdown(secs);
+    setShowCustomInput(false);
+    setCustomDuration("");
+    intervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          logCustomBreak(secs);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function logCustomBreak(durationSecs: number) {
+    if (!user?.id) return;
+    setActiveBreak(null);
+    setIsLogging(true);
+    try {
+      await activitiesApi.logBreak({
+        userId: user.id,
+        sessionId: "standalone",
+        breakType: "other",
+        duration: durationSecs,
+      });
+      Alert.alert("Break Complete!", `${Math.floor(durationSecs / 60)} minute break logged`);
+      fetchLogs();
+    } catch {
+      Alert.alert("Error", "Failed to log break");
+    } finally {
+      setIsLogging(false);
+    }
+  }
+
   async function finishBreak(breakDef: (typeof BREAK_TYPES)[0]) {
     if (!user?.id) return;
     setActiveBreak(null);
@@ -717,7 +767,7 @@ function BreaksTab() {
       });
       Alert.alert(
         "Break Complete!",
-        `${breakDef.label} logged — +15 XP earned!`
+        `${breakDef.label} logged`
       );
       fetchLogs();
     } catch {
@@ -732,6 +782,23 @@ function BreaksTab() {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  // Format relative time (e.g., "5 min ago", "2 hours ago", "Yesterday")
+  function formatRelativeTime(date: Date | string): string {
+    const now = new Date();
+    const then = new Date(date);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return then.toLocaleDateString([], { month: "short", day: "numeric" });
   }
 
   // Today's break count
@@ -799,10 +866,10 @@ function BreaksTab() {
 
       {/* Break type cards */}
       <Text className="text-white text-base font-semibold mb-3">
-        Take a Micro-Break
+        Take a Break
       </Text>
       <Text className="text-slate-400 text-sm mb-4">
-        Start a timer and earn XP when complete
+        Start a timer and log your break
       </Text>
       <View className="gap-3 mb-6">
         {BREAK_TYPES.map((b) => (
@@ -835,6 +902,59 @@ function BreaksTab() {
         ))}
       </View>
 
+      {/* Custom break input */}
+      {showCustomInput ? (
+        <Card variant="elevated" className="mb-6 p-4">
+          <Text className="text-white text-base font-semibold mb-3">
+            Custom Break Duration
+          </Text>
+          <View className="flex-row items-center gap-3">
+            <TextInput
+              className="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg border border-slate-600"
+              placeholder="Enter minutes (max 30)"
+              placeholderTextColor="#94A3B8"
+              keyboardType="number-pad"
+              value={customDuration}
+              onChangeText={setCustomDuration}
+              maxLength={2}
+            />
+            <Button
+              title="Start"
+              variant="primary"
+              onPress={startCustomBreak}
+              disabled={!customDuration || isLogging}
+            />
+            <Button
+              title="Cancel"
+              variant="secondary"
+              onPress={() => {
+                setShowCustomInput(false);
+                setCustomDuration("");
+              }}
+            />
+          </View>
+        </Card>
+      ) : (
+        <TouchableOpacity
+          className="flex-row items-center bg-slate-800 rounded-xl p-4 border border-slate-700 mb-6"
+          onPress={() => setShowCustomInput(true)}
+          activeOpacity={0.7}
+        >
+          <View className="w-14 h-14 rounded-2xl items-center justify-center mr-4 bg-purple-500/20">
+            <Ionicons name="timer-outline" size={28} color="#A78BFA" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-white text-base font-semibold">
+              Custom Break
+            </Text>
+            <Text className="text-slate-400 text-sm mt-0.5">
+              Set your own break duration
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#64748B" />
+        </TouchableOpacity>
+      )}
+
       {/* Recent break history */}
       <Text className="text-white text-base font-semibold mb-3">
         Recent Breaks
@@ -862,10 +982,7 @@ function BreaksTab() {
                 </Text>
               </View>
               <Text className="text-slate-500 text-xs">
-                {new Date(log.date || log.createdAt).toLocaleDateString([], {
-                  month: "short",
-                  day: "numeric",
-                })}
+                {formatRelativeTime(log.date || log.createdAt)}
               </Text>
             </View>
           );
