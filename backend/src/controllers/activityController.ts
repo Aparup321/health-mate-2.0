@@ -250,13 +250,6 @@ class ActivityController {
 
       await log.save();
 
-      // Award points for break
-      await awardPoints(userId, POINTS_CONFIG.BREAK_TAKEN, "break_taken");
-
-      // Check break count achievements
-      const breakCount = await BreakLog.countDocuments({ userId });
-      await checkAndAwardAchievements(userId, "break_count", breakCount);
-
       sendSuccessResponse(res, 201, log, "Break logged successfully");
     }
   );

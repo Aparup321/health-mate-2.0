@@ -153,8 +153,6 @@ class WorkSessionController {
         session.breaksScheduled > 0 &&
         session.breaksTaken === session.breaksScheduled
       ) {
-        await awardPoints(userId, POINTS_CONFIG.ALL_BREAKS_BONUS, "all_breaks_bonus");
-
         // Check perfect session achievement
         await checkAndAwardAchievements(userId, "perfect_session");
       }
