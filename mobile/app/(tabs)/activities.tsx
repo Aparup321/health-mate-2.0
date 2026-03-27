@@ -10,6 +10,8 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -27,12 +29,37 @@ import Card from "@/components/Card";
 import Button from "@/components/Button";
 import ProgressBar from "@/components/ProgressBar";
 
+declare global {
+  var lastActivityDate: string | undefined;
+}
+
 type ActivityTab = "hydration" | "exercise" | "breathing" | "breaks";
 
 const DAILY_WATER_GOAL = 2000; // ml (matches backend HEALTH_GOALS.DAILY_WATER_INTAKE_ML)
 
 export default function ActivitiesScreen() {
   const [activeTab, setActiveTab] = useState<ActivityTab>("hydration");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        const today = new Date().toDateString();
+        const lastVisit = global.lastActivityDate || today;
+        if (today !== lastVisit) {
+          global.lastActivityDate = today;
+          setRefreshKey((prev) => prev + 1);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    global.lastActivityDate = new Date().toDateString();
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-900" edges={["top"]}>
@@ -77,10 +104,10 @@ export default function ActivitiesScreen() {
         ))}
       </View>
 
-      {activeTab === "hydration" && <HydrationTab />}
-      {activeTab === "exercise" && <ExerciseTab />}
+      {activeTab === "hydration" && <HydrationTab refreshKey={refreshKey} />}
+      {activeTab === "exercise" && <ExerciseTab refreshKey={refreshKey} />}
       {activeTab === "breathing" && <BreathingTab />}
-      {activeTab === "breaks" && <BreaksTab />}
+      {activeTab === "breaks" && <BreaksTab refreshKey={refreshKey} />}
     </SafeAreaView>
   );
 }
@@ -88,25 +115,40 @@ export default function ActivitiesScreen() {
 // ─────────────────────────────────────────────────────────
 // HYDRATION TAB
 // ─────────────────────────────────────────────────────────
-function HydrationTab() {
+function HydrationTab({ refreshKey }: { refreshKey: number }) {
   const { user } = useAuth();
   const [amount, setAmount] = useState("");
   const [isLogging, setIsLogging] = useState(false);
   const [logs, setLogs] = useState<HydrationLog[]>([]);
   const [totalToday, setTotalToday] = useState(0);
+  const [todayKey, setTodayKey] = useState(new Date().toDateString());
 
   useFocusEffect(
     useCallback(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+      }
       fetchLogs();
-    }, [])
+    }, [todayKey, refreshKey])
   );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+        fetchLogs();
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [todayKey]);
 
   async function fetchLogs() {
     try {
       const res = await activitiesApi.getHydration({ limit: 50 });
       const allLogs = res.data.logs || [];
       setLogs(allLogs);
-      // Sum today's intake
       const today = new Date().toDateString();
       const todayTotal = allLogs
         .filter((l) => new Date(l.date).toDateString() === today)
@@ -141,6 +183,21 @@ function HydrationTab() {
 
   return (
     <ScrollView contentContainerClassName="px-5 pb-8">
+      {/* Daily Summary Header */}
+      <Card variant="elevated" className="mb-4 bg-slate-800/50">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="today" size={18} color="#3B82F6" />
+            <Text className="text-white text-sm font-semibold ml-2">
+              Today's Progress
+            </Text>
+          </View>
+          <Text className="text-slate-400 text-xs">
+            {new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+          </Text>
+        </View>
+      </Card>
+
       {/* Daily progress */}
       <Card variant="elevated" className="mb-5">
         <View className="items-center mb-3">
@@ -157,7 +214,7 @@ function HydrationTab() {
           </Text>
           {goalReached && (
             <Text className="text-emerald-400 text-xs font-semibold mt-1">
-              Daily goal reached! +20 bonus XP
+              Daily goal reached!
             </Text>
           )}
         </View>
@@ -268,17 +325,33 @@ const EXERCISES: {
   { type: "other", label: "Other", icon: "fitness-outline", defaultDuration: 15, defaultCalories: 80, intensity: "medium", color: "#94A3B8" },
 ];
 
-function ExerciseTab() {
+function ExerciseTab({ refreshKey }: { refreshKey: number }) {
   const { user } = useAuth();
   const [isLogging, setIsLogging] = useState(false);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [customDuration, setCustomDuration] = useState<Record<string, string>>({});
+  const [todayKey, setTodayKey] = useState(new Date().toDateString());
 
   useFocusEffect(
     useCallback(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+      }
       fetchLogs();
-    }, [])
+    }, [todayKey, refreshKey])
   );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+        fetchLogs();
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [todayKey]);
 
   async function fetchLogs() {
     try {
@@ -333,6 +406,21 @@ function ExerciseTab() {
 
   return (
     <ScrollView contentContainerClassName="px-5 pb-8">
+      {/* Daily Summary Header */}
+      <Card variant="elevated" className="mb-4 bg-slate-800/50">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="today" size={18} color="#A78BFA" />
+            <Text className="text-white text-sm font-semibold ml-2">
+              Today's Exercise
+            </Text>
+          </View>
+          <Text className="text-slate-400 text-xs">
+            {new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+          </Text>
+        </View>
+      </Card>
+
       {/* Today's stats */}
       <View className="flex-row gap-3 mb-5">
         <Card variant="elevated" className="flex-1 items-center py-4">
@@ -654,7 +742,7 @@ const BREAK_TYPES: {
   },
 ];
 
-function BreaksTab() {
+function BreaksTab({ refreshKey }: { refreshKey: number }) {
   const { user } = useAuth();
   const [logs, setLogs] = useState<BreakLog[]>([]);
   const [activeBreak, setActiveBreak] = useState<BreakType | null>(null);
@@ -662,16 +750,32 @@ function BreaksTab() {
   const [isLogging, setIsLogging] = useState(false);
   const [customDuration, setCustomDuration] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [todayKey, setTodayKey] = useState(new Date().toDateString());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+      }
       fetchLogs();
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
       };
-    }, [])
+    }, [todayKey, refreshKey])
   );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDay = new Date().toDateString();
+      if (currentDay !== todayKey) {
+        setTodayKey(currentDay);
+        fetchLogs();
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [todayKey]);
 
   async function fetchLogs() {
     try {
@@ -680,23 +784,6 @@ function BreaksTab() {
     } catch {
       // silently fail
     }
-  }
-
-  function startBreakTimer(breakDef: (typeof BREAK_TYPES)[0]) {
-    setActiveBreak(breakDef.type);
-    setCountdown(breakDef.durationSecs);
-
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!);
-          intervalRef.current = null;
-          finishBreak(breakDef);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
   }
 
   function cancelBreakTimer() {
@@ -809,6 +896,21 @@ function BreaksTab() {
 
   return (
     <ScrollView contentContainerClassName="px-5 pb-8">
+      {/* Daily Summary Header */}
+      <Card variant="elevated" className="mb-4 bg-slate-800/50">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="today" size={18} color="#10B981" />
+            <Text className="text-white text-sm font-semibold ml-2">
+              Today's Breaks
+            </Text>
+          </View>
+          <Text className="text-slate-400 text-xs">
+            {new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+          </Text>
+        </View>
+      </Card>
+
       {/* Today's summary */}
       <Card variant="elevated" className="mb-5 items-center py-4">
         <Ionicons name="cafe" size={24} color="#10B981" />
