@@ -37,6 +37,22 @@ type ActivityTab = "hydration" | "exercise" | "breathing" | "breaks";
 
 const DAILY_WATER_GOAL = 2000; // ml (matches backend HEALTH_GOALS.DAILY_WATER_INTAKE_ML)
 
+function formatRelativeTime(date: Date | string): string {
+  const now = new Date();
+  const then = new Date(date);
+  const diffMs = now.getTime() - then.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return then.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 export default function ActivitiesScreen() {
   const [activeTab, setActiveTab] = useState<ActivityTab>("hydration");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -189,7 +205,7 @@ function HydrationTab({ refreshKey }: { refreshKey: number }) {
           <View className="flex-row items-center">
             <Ionicons name="today" size={18} color="#3B82F6" />
             <Text className="text-white text-sm font-semibold ml-2">
-              Today's Progress
+              Today&apos;s Progress
             </Text>
           </View>
           <Text className="text-slate-400 text-xs">
@@ -327,10 +343,26 @@ const EXERCISES: {
 
 function ExerciseTab({ refreshKey }: { refreshKey: number }) {
   const { user } = useAuth();
-  const [isLogging, setIsLogging] = useState(false);
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [customDuration, setCustomDuration] = useState<Record<string, string>>({});
   const [todayKey, setTodayKey] = useState(new Date().toDateString());
+  const [activeExercise, setActiveExercise] = useState<(typeof EXERCISES)[0] | null>(null);
+  const [exerciseCountdown, setExerciseCountdown] = useState(0);
+  const [exerciseInitialDuration, setExerciseInitialDuration] = useState(0);
+  const [remainingTime, setRemainingTime] = useState<Record<string, number>>({});
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  const exerciseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const today = new Date().toDateString();
+  const todayCompletedExercises = logs
+    .filter((l) => new Date(l.date || l.createdAt).toDateString() === today)
+    .map((l) => l.exerciseType);
+
+  function formatTime(secs: number): string {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -362,11 +394,49 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
     }
   }
 
-  async function logExercise(exercise: (typeof EXERCISES)[0]) {
+  function startExerciseTimer(exercise: (typeof EXERCISES)[0]) {
     if (!user?.id) return;
-    setIsLogging(true);
-    const duration = parseInt(customDuration[exercise.type] || "", 10) || exercise.defaultDuration;
-    // Scale calories linearly with custom duration
+
+    const customMins = parseInt(customDuration[exercise.type] || "", 10) || exercise.defaultDuration;
+    const remainingSecs = remainingTime[exercise.type] ?? customMins * 60;
+    const initialDuration = remainingSecs;
+    const exerciseRef = exercise;
+    let elapsedSeconds = 0;
+
+    setActiveExercise(exercise);
+    setExerciseCountdown(remainingSecs);
+    setExerciseInitialDuration(remainingSecs);
+
+    exerciseTimerRef.current = setInterval(() => {
+      setExerciseCountdown((prev) => {
+        elapsedSeconds += 1;
+        if (prev <= 1) {
+          clearInterval(exerciseTimerRef.current!);
+          exerciseTimerRef.current = null;
+          logExerciseOnComplete(exerciseRef, elapsedSeconds);
+          return 0;
+        }
+        const newVal = prev - 1;
+        setRemainingTime((prev2) => ({ ...prev2, [exercise.type]: newVal }));
+        return newVal;
+      });
+    }, 1000);
+  }
+
+  function cancelExerciseTimer() {
+    if (exerciseTimerRef.current) {
+      clearInterval(exerciseTimerRef.current);
+      exerciseTimerRef.current = null;
+    }
+    setActiveExercise(null);
+    setExerciseCountdown(0);
+    setExerciseInitialDuration(0);
+  }
+
+  async function logExerciseOnComplete(exercise: (typeof EXERCISES)[0], totalSeconds: number) {
+    if (!user?.id) return;
+    
+    const duration = Math.max(1, Math.round(totalSeconds / 60));
     const calories = Math.round(
       (duration / exercise.defaultDuration) * exercise.defaultCalories
     );
@@ -378,23 +448,35 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
         intensity: exercise.intensity,
         caloriesBurned: calories,
       });
-      Alert.alert(
-        "Logged!",
-        `${exercise.label} — ${duration} min, ~${calories} cal burned\n+${
-          exercise.intensity === "high" ? 75 : exercise.intensity === "medium" ? 50 : 30
-        } XP`
-      );
-      setCustomDuration((prev) => ({ ...prev, [exercise.type]: "" }));
+      Alert.alert("Exercise Complete!", `${exercise.label} — ${duration} min completed!`);
+      setRemainingTime((prev) => ({ ...prev, [exercise.type]: 0 }));
+      setJustCompleted(exercise.type);
+      setTimeout(() => setJustCompleted(null), 3000);
       fetchLogs();
     } catch {
       Alert.alert("Error", "Failed to log exercise");
-    } finally {
-      setIsLogging(false);
+    }
+    setActiveExercise(null);
+    setExerciseCountdown(0);
+    setExerciseInitialDuration(0);
+  }
+
+  function handleStopAndLog() {
+    if (exerciseCountdown > 0 && activeExercise) {
+      const timeExercised = exerciseInitialDuration - exerciseCountdown;
+      const remainingSecs = exerciseCountdown;
+      setRemainingTime((prev) => ({ ...prev, [activeExercise.type]: remainingSecs }));
+      if (timeExercised >= 30) {
+        logExerciseOnComplete(activeExercise, timeExercised);
+      } else {
+        cancelExerciseTimer();
+      }
+    } else {
+      cancelExerciseTimer();
     }
   }
 
   // Today's summary
-  const today = new Date().toDateString();
   const todayLogs = logs.filter(
     (l) => new Date(l.date || l.createdAt).toDateString() === today
   );
@@ -412,7 +494,7 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
           <View className="flex-row items-center">
             <Ionicons name="today" size={18} color="#A78BFA" />
             <Text className="text-white text-sm font-semibold ml-2">
-              Today's Exercise
+              Today&apos;s Exercise
             </Text>
           </View>
           <Text className="text-slate-400 text-xs">
@@ -446,6 +528,34 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
         </Card>
       </View>
 
+      {/* Active exercise timer */}
+      {activeExercise && (
+        <Card variant="elevated" className="mb-5 items-center py-6">
+          <View
+            className="w-24 h-24 rounded-full items-center justify-center mb-3"
+            style={{
+              backgroundColor: `${activeExercise.color}20`,
+              borderWidth: 3,
+              borderColor: activeExercise.color,
+            }}
+          >
+            <Text className="text-3xl font-extrabold" style={{ color: activeExercise.color }}>
+              {formatTime(exerciseCountdown)}
+            </Text>
+          </View>
+          <Text className="text-white text-lg font-bold">{activeExercise.label}</Text>
+          <Text className="text-slate-400 text-sm mt-1 mb-4">
+            {exerciseCountdown > 0 ? "Exercise in progress..." : "Complete!"}
+          </Text>
+          <Button
+            title={exerciseCountdown > 0 ? "Stop & Log" : "Done"}
+            variant="secondary"
+            size="sm"
+            onPress={handleStopAndLog}
+          />
+        </Card>
+      )}
+
       {/* Exercise cards */}
       <Text className="text-white text-base font-semibold mb-3">
         Log Exercise
@@ -458,8 +568,13 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
           >
             <TouchableOpacity
               className="flex-row items-center p-4"
-              onPress={() => logExercise(ex)}
-              disabled={isLogging}
+              onPress={() => {
+                if (activeExercise?.type === ex.type) {
+                  cancelExerciseTimer();
+                } else {
+                  startExerciseTimer(ex);
+                }
+              }}
               activeOpacity={0.7}
             >
               <View
@@ -473,7 +588,9 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
                   {ex.label}
                 </Text>
                 <Text className="text-slate-400 text-sm">
-                  {customDuration[ex.type] || ex.defaultDuration} min &middot; ~
+                  {remainingTime[ex.type] 
+                    ? `${Math.ceil(remainingTime[ex.type] / 60)} min remaining` 
+                    : `${customDuration[ex.type] || ex.defaultDuration} min`} &middot; ~
                   {Math.round(
                     ((parseInt(customDuration[ex.type] || "", 10) ||
                       ex.defaultDuration) /
@@ -483,7 +600,13 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
                   cal &middot; {ex.intensity}
                 </Text>
               </View>
-              <Ionicons name="add-circle" size={28} color={ex.color} />
+              {activeExercise?.type === ex.type ? (
+                <Ionicons name="stop-circle" size={28} color="#EF4444" />
+              ) : justCompleted === ex.type || todayCompletedExercises.includes(ex.type) ? (
+                <Ionicons name="checkmark-circle" size={28} color="#22C55E" />
+              ) : (
+                <Ionicons name="play-circle" size={28} color={ex.color} />
+              )}
             </TouchableOpacity>
             {/* Custom duration input */}
             <View className="flex-row items-center px-4 pb-3">
@@ -538,10 +661,7 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
                 </View>
               </View>
               <Text className="text-slate-500 text-xs">
-                {new Date(log.date || log.createdAt).toLocaleDateString([], {
-                  month: "short",
-                  day: "numeric",
-                })}
+                {formatRelativeTime(log.date || log.createdAt)}
               </Text>
             </View>
           );
@@ -793,6 +913,23 @@ function BreaksTab({ refreshKey }: { refreshKey: number }) {
     setCountdown(0);
   }
 
+  function startBreakTimer(breakDef: (typeof BREAK_TYPES)[0]) {
+    setActiveBreak(breakDef.type);
+    setCountdown(breakDef.durationSecs);
+
+    intervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          finishBreak(breakDef);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
   function startCustomBreak() {
     const mins = parseInt(customDuration, 10);
     if (isNaN(mins) || mins <= 0) {
@@ -871,28 +1008,13 @@ function BreaksTab({ refreshKey }: { refreshKey: number }) {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
-  // Format relative time (e.g., "5 min ago", "2 hours ago", "Yesterday")
-  function formatRelativeTime(date: Date | string): string {
-    const now = new Date();
-    const then = new Date(date);
-    const diffMs = now.getTime() - then.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return then.toLocaleDateString([], { month: "short", day: "numeric" });
-  }
-
   // Today's break count
   const today = new Date().toDateString();
   const todayBreaks = logs.filter(
     (l) => new Date(l.date || l.createdAt).toDateString() === today
   ).length;
+
+ 
 
   return (
     <ScrollView contentContainerClassName="px-5 pb-8">
@@ -902,7 +1024,7 @@ function BreaksTab({ refreshKey }: { refreshKey: number }) {
           <View className="flex-row items-center">
             <Ionicons name="today" size={18} color="#10B981" />
             <Text className="text-white text-sm font-semibold ml-2">
-              Today's Breaks
+              Today&apos;s Breaks
             </Text>
           </View>
           <Text className="text-slate-400 text-xs">
