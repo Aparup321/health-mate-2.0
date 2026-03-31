@@ -7,6 +7,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   avatar: string;
+  referralCode: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(password: string): Promise<boolean>;
@@ -41,23 +42,43 @@ const UserSchema = new Schema<IUser>(
       default: "",
       trim: true,
     },
+    referralCode: {
+      type: String,
+      unique: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
-// Hash password before saving
+// Generate unique referral code before saving
 UserSchema.pre("save", async function () {
-  if (!this.isModified("password")) {
-    return;
-  }
-
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  } catch (error) {
-    throw error;
+  if (!this.referralCode) {
+    this.referralCode = this.generateReferralCode();
   }
 });
+
+// Hash password before saving
+UserSchema.pre("save", async function () {
+  if (this.isModified("password") && !this.isNew) {
+    try {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    } catch (error) {
+      throw error;
+    }
+  }
+});
+
+// Generate unique referral code
+UserSchema.methods.generateReferralCode = function (): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
 
 // Method to compare password
 UserSchema.methods.comparePassword = async function (password: string): Promise<boolean> {
