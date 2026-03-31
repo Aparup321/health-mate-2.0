@@ -352,6 +352,7 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
   const [remainingTime, setRemainingTime] = useState<Record<string, number>>({});
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
   const exerciseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedRef = useRef(0);
 
   const today = new Date().toDateString();
   const todayCompletedExercises = logs
@@ -401,7 +402,7 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
     const remainingSecs = remainingTime[exercise.type] ?? customMins * 60;
     const initialDuration = remainingSecs;
     const exerciseRef = exercise;
-    let elapsedSeconds = 0;
+    elapsedRef.current = 0;
 
     setActiveExercise(exercise);
     setExerciseCountdown(remainingSecs);
@@ -409,11 +410,11 @@ function ExerciseTab({ refreshKey }: { refreshKey: number }) {
 
     exerciseTimerRef.current = setInterval(() => {
       setExerciseCountdown((prev) => {
-        elapsedSeconds += 1;
+        elapsedRef.current += 1;
         if (prev <= 1) {
           clearInterval(exerciseTimerRef.current!);
           exerciseTimerRef.current = null;
-          logExerciseOnComplete(exerciseRef, elapsedSeconds);
+          logExerciseOnComplete(exerciseRef, elapsedRef.current);
           return 0;
         }
         const newVal = prev - 1;

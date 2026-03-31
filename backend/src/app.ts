@@ -17,6 +17,7 @@ import gamificationRoutes from "./routes/gamificationRoutes";
 import leaderboardRoutes from "./routes/leaderboardRoutes";
 import peerChallengeRoutes from "./routes/peerChallengeRoutes";
 import reminderRoutes from "./routes/reminderRoutes";
+import connectionRoutes from "./routes/connectionRoutes";
 
 const app = express();
 
@@ -73,6 +74,7 @@ apiV1.use("/gamification", gamificationRoutes);
 apiV1.use("/leaderboards", leaderboardRoutes);
 apiV1.use("/peer-challenges", peerChallengeRoutes);
 apiV1.use("/reminders", reminderRoutes);
+apiV1.use("/connections", connectionRoutes);
 
 app.use("/api/v1", apiV1);
 

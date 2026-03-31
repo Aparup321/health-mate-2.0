@@ -12,6 +12,10 @@ import type {
   RefreshRequest,
   User,
   UpdateProfileRequest,
+  SearchUsersResponse,
+  ConnectionRequest,
+  ConnectionRequestListResponse,
+  ConnectionListResponse,
   HealthProfile,
   CreateHealthProfileRequest,
   UpdateHealthProfileRequest,
@@ -260,6 +264,11 @@ export const authApi = {
       false,
     );
   },
+
+  searchUsers(query: string) {
+    const q = encodeURIComponent(query);
+    return request<ApiResponse<SearchUsersResponse>>(`/auth/search?q=${q}`);
+  },
 };
 
 // ==================== Health Profile API ====================
@@ -491,6 +500,56 @@ export const remindersApi = {
       `/reminders/test/${type}`,
       {
         method: "POST",
+      },
+    );
+  },
+};
+
+// ==================== Connections API ====================
+export const connectionsApi = {
+  sendRequest(toUserId: string) {
+    return request<ApiResponse<ConnectionRequest>>(
+      "/connections",
+      {
+        method: "POST",
+        body: JSON.stringify({ toUserId }),
+      },
+    );
+  },
+
+  getReceivedRequests() {
+    return request<ApiResponse<ConnectionRequestListResponse>>(
+      "/connections/received",
+    );
+  },
+
+  getSentRequests() {
+    return request<ApiResponse<ConnectionRequestListResponse>>(
+      "/connections/sent",
+    );
+  },
+
+  getConnections() {
+    return request<ApiResponse<ConnectionListResponse>>(
+      "/connections/connections",
+    );
+  },
+
+  respondToRequest(id: string, status: "accepted" | "declined") {
+    return request<ApiResponse<ConnectionRequest>>(
+      `/connections/${id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      },
+    );
+  },
+
+  cancelRequest(id: string) {
+    return request<ApiResponse<Record<string, never>>>(
+      `/connections/${id}`,
+      {
+        method: "DELETE",
       },
     );
   },

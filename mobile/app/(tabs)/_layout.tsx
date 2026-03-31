@@ -22,6 +22,12 @@ const tabs: {
     iconFocused: "fitness",
   },
   {
+    name: "connection",
+    title: "Connect",
+    icon: "people-outline",
+    iconFocused: "people",
+  },
+  {
     name: "leaderboard",
     title: "Ranks",
     icon: "trophy-outline",

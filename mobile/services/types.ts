@@ -40,6 +40,45 @@ export interface SearchUsersResponse {
   users: SearchUserResult[];
 }
 
+export interface ConnectionRequest {
+  _id: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromReferralCode: string;
+  toUserId: string;
+  toUserName: string;
+  toReferralCode: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConnectionRequestListResponse {
+  requests: ConnectionRequest[];
+  count: number;
+}
+
+export interface Connection {
+  id: string;
+  userId: string;
+  userName: string;
+  referralCode: string;
+  connectedAt: string;
+}
+
+export interface ConnectionListResponse {
+  connections: Connection[];
+  count: number;
+}
+
+export interface SendConnectionRequestRequest {
+  toUserId: string;
+}
+
+export interface RespondConnectionRequestRequest {
+  status: "accepted" | "declined";
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;

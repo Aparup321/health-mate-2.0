@@ -213,6 +213,47 @@ class AuthController {
       "User profile updated",
     );
   });
+
+  /**
+   * Search users by referralCode or name
+   * GET /api/v1/auth/search?q=query
+   */
+  searchUsers = asyncHandler(async (req: Request, res: Response) => {
+    const query = (req.query.q as string)?.trim();
+    if (!query || query.length < 2) {
+      throw new ValidationError("Search query must be at least 2 characters");
+    }
+
+    const userId = req.userId!;
+
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: userId } },
+        {
+          $or: [
+            { referralCode: { $regex: query, $options: "i" } },
+            { name: { $regex: query, $options: "i" } },
+          ],
+        },
+      ],
+    })
+      .select("name email referralCode")
+      .limit(10);
+
+    sendSuccessResponse(
+      res,
+      200,
+      {
+        users: users.map((u) => ({
+          id: u._id,
+          name: u.name,
+          email: u.email,
+          referralCode: u.referralCode,
+        })),
+      },
+      "Users found",
+    );
+  });
 }
 
 export default new AuthController();

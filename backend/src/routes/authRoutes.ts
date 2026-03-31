@@ -16,5 +16,6 @@ router.post("/refresh", authController.refreshToken);
  */
 router.get("/me", requireAuth, authController.getCurrentUser);
 router.put("/me", requireAuth, authController.updateProfile);
+router.get("/search", requireAuth, authController.searchUsers);
 
 export default router;
