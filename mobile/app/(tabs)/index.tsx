@@ -14,14 +14,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, router, type Href } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/services/auth";
-import { gamificationApi, workSessionsApi } from "@/services/api";
-import type { PointsResponse, StreakResponse } from "@/services/types";
+import { gamificationApi, workSessionsApi, activitiesApi } from "@/services/api";
+import type { PointsResponse, StreakResponse, ExerciseLog } from "@/services/types";
 import { Gamification } from "@/constants/theme";
 import Card from "@/components/Card";
 import StatCard from "@/components/StatCard";
 import ProgressBar from "@/components/ProgressBar";
 import Button from "@/components/Button";
 
+type TimeRange = "day" | "week" | "month";
 type TimerState = "idle" | "running" | "paused" | "break";
 
 /** Compute level info from total XP using Gamification.xpPerLevel thresholds */
@@ -54,6 +55,8 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [streak, setStreak] = useState<StreakResponse | null>(null);
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>("day");
 
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>("idle");
@@ -66,7 +69,8 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchStats();
-    }, [])
+      fetchExerciseStats();
+    }, [timeRange])
   );
 
   async function fetchStats() {
@@ -81,6 +85,39 @@ export default function DashboardScreen() {
       // Stats are non-critical, silently fail
     }
   }
+
+  async function fetchExerciseStats() {
+    try {
+      const limit = timeRange === "day" ? 50 : timeRange === "week" ? 100 : 200;
+      const res = await activitiesApi.getExercise({ limit });
+      setExerciseLogs(res.data.logs || []);
+    } catch {
+      // silently fail
+    }
+  }
+
+  // Filter exercises based on time range
+  const filteredExercises = exerciseLogs.filter((log) => {
+    const logDate = new Date(log.date || log.createdAt);
+    const now = new Date();
+    if (timeRange === "day") {
+      return logDate.toDateString() === now.toDateString();
+    } else if (timeRange === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return logDate >= weekAgo;
+    } else {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return logDate >= monthAgo;
+    }
+  });
+
+  const totalExerciseMinutes = filteredExercises.reduce((sum, l) => sum + l.duration, 0);
+  const totalCalories = filteredExercises.reduce((sum, l) => sum + (l.caloriesBurned ?? 0), 0);
+  const exerciseCount = filteredExercises.length;
+
+  // Target minutes based on time range
+  const targetMinutes = timeRange === "day" ? 30 : timeRange === "week" ? 150 : 600;
+  const progressPercent = Math.min((totalExerciseMinutes / targetMinutes) * 100, 100);
 
   // Derived values from points
   const totalXp = points?.totalPoints ?? 0;
@@ -244,6 +281,107 @@ export default function DashboardScreen() {
             className="flex-1"
           />
         </View>
+
+        {/* Big Flashy Exercise Progress */}
+        <Card variant="elevated" className="mb-6 overflow-hidden">
+          {/* Gradient-like header */}
+          <View className="bg-gradient-to-r from-emerald-500/30 to-teal-500/30 py-3 px-4 flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <Ionicons name="fitness" size={20} color="#10B981" />
+                <Text className="text-white text-base font-bold ml-2">Exercise Progress</Text>
+              </View>
+              <View className="flex-row gap-2">
+                {(["day", "week", "month"] as TimeRange[]).map((range) => (
+                  <TouchableOpacity
+                    key={range}
+                    className={`px-3 py-1 rounded-full ${
+                      timeRange === range ? "bg-emerald-500" : "bg-slate-700"
+                    }`}
+                    onPress={() => setTimeRange(range)}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        timeRange === range ? "text-slate-900" : "text-slate-300"
+                      }`}
+                    >
+                      {range === "day" ? "1D" : range === "week" ? "1W" : "1M"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Big circular progress */}
+            <View className="items-center py-6">
+              <View className="w-44 h-44 rounded-full items-center justify-center relative">
+                {/* Outer glow effect */}
+                <View className="absolute w-40 h-40 rounded-full bg-emerald-500/10" />
+                {/* Background */}
+                <View className="absolute w-36 h-36 rounded-full bg-slate-800" />
+                {/* Progress arc */}
+                <View
+                  className="absolute w-36 h-36 rounded-full"
+                  style={{
+                    borderWidth: 14,
+                    borderColor: "#10B981",
+                    borderTopColor: progressPercent > 25 ? "#10B981" : "transparent",
+                    borderRightColor: progressPercent > 50 ? "#10B981" : "transparent",
+                    borderBottomColor: progressPercent > 75 ? "#10B981" : "transparent",
+                    borderLeftColor: progressPercent > 0 ? "#10B981" : "transparent",
+                    transform: [{ rotate: "-90deg" }],
+                  }}
+                />
+                {/* Center content */}
+                <View className="absolute items-center">
+                  <Text className="text-white text-4xl font-extrabold">
+                    {Math.round(progressPercent)}%
+                  </Text>
+                  <Text className="text-emerald-400 text-xs font-medium">COMPLETE</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Flashy stats row */}
+            <View className="flex-row justify-around px-4 pb-4">
+              <View className="items-center">
+                <View className="w-14 h-14 rounded-2xl bg-emerald-500/20 items-center justify-center mb-2">
+                  <Ionicons name="time" size={28} color="#10B981" />
+                </View>
+                <Text className="text-white text-2xl font-bold">{totalExerciseMinutes}</Text>
+                <Text className="text-slate-400 text-xs">Minutes</Text>
+              </View>
+              <View className="w-px bg-slate-700" />
+              <View className="items-center">
+                <View className="w-14 h-14 rounded-2xl bg-orange-500/20 items-center justify-center mb-2">
+                  <Ionicons name="flame" size={28} color="#F97316" />
+                </View>
+                <Text className="text-white text-2xl font-bold">{totalCalories}</Text>
+                <Text className="text-slate-400 text-xs">Calories</Text>
+              </View>
+              <View className="w-px bg-slate-700" />
+              <View className="items-center">
+                <View className="w-14 h-14 rounded-2xl bg-purple-500/20 items-center justify-center mb-2">
+                  <Ionicons name="repeat" size={28} color="#A855F7" />
+                </View>
+                <Text className="text-white text-2xl font-bold">{exerciseCount}</Text>
+                <Text className="text-slate-400 text-xs">Sessions</Text>
+              </View>
+            </View>
+
+            {/* Progress bar */}
+            <View className="px-4 pb-4">
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-slate-400 text-sm">Daily Goal</Text>
+                <Text className="text-emerald-400 text-sm font-bold">{totalExerciseMinutes}/{targetMinutes} min</Text>
+              </View>
+              <View className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                <View
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+                  style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                />
+              </View>
+            </View>
+          </Card>
 
         {/* XP Progress */}
         {points && (

@@ -125,6 +125,22 @@ export default function SettingsScreen() {
                 {user?.name || "User"}
               </Text>
               <Text className="text-slate-400 text-sm">{user?.email}</Text>
+              {user?.referralCode && (
+                <View className="flex-row items-center mt-1">
+                  <Text className="text-emerald-400 text-xs font-medium">
+                    ID: {user.referralCode}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      // Copy to clipboard functionality would go here
+                      Alert.alert("Copied!", "Referral code copied to clipboard");
+                    }}
+                    className="ml-2"
+                  >
+                    <Ionicons name="copy-outline" size={12} color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             <TouchableOpacity
               className="p-2"

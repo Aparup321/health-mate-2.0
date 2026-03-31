@@ -29,6 +29,17 @@ export interface User {
   updatedAt?: string;
 }
 
+export interface SearchUserResult {
+  id: string;
+  name: string;
+  email: string;
+  referralCode: string;
+}
+
+export interface SearchUsersResponse {
+  users: SearchUserResult[];
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;

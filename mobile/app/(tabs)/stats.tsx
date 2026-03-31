@@ -1,23 +1,26 @@
 /**
- * Stats tab - Profile overview, BMI, achievements, streaks
+ * Stats tab - Profile overview, BMI, achievements, streaks, exercise stats
  */
 import { useState, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/services/auth";
-import { gamificationApi, healthProfileApi } from "@/services/api";
+import { gamificationApi, healthProfileApi, activitiesApi } from "@/services/api";
 import type {
   PointsResponse,
   StreakResponse,
   Achievement,
   BMIResponse,
+  ExerciseLog,
 } from "@/services/types";
 import { Gamification } from "@/constants/theme";
 import Card from "@/components/Card";
 import StatCard from "@/components/StatCard";
 import ProgressBar from "@/components/ProgressBar";
+
+type TimeRange = "day" | "week" | "month";
 
 /** Compute level info from total XP */
 function getLevelInfo(totalXp: number) {
@@ -60,33 +63,58 @@ export default function StatsScreen() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [bmi, setBmi] = useState<BMIResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>("week");
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       fetchAll();
-    }, [])
+    }, [timeRange])
   );
 
   async function fetchAll() {
     setIsLoading(true);
     try {
-      const [pRes, sRes, aRes, bRes] = await Promise.allSettled([
+      const [pRes, sRes, aRes, bRes, eRes] = await Promise.allSettled([
         gamificationApi.getPoints(),
         gamificationApi.getStreaks(),
         gamificationApi.getAchievements(),
         healthProfileApi.getBMI(),
+        activitiesApi.getExercise({ limit: 100 }),
       ]);
       if (pRes.status === "fulfilled") setPoints(pRes.value.data);
       if (sRes.status === "fulfilled") setStreak(sRes.value.data);
       if (aRes.status === "fulfilled")
         setAchievements(aRes.value.data.achievements || []);
       if (bRes.status === "fulfilled") setBmi(bRes.value.data);
+      if (eRes.status === "fulfilled") setExerciseLogs(eRes.value.data.logs || []);
     } catch {
       // silently fail
     } finally {
       setIsLoading(false);
     }
   }
+
+  // Filter exercises based on time range
+  const filteredExercises = exerciseLogs.filter((log) => {
+    const logDate = new Date(log.date || log.createdAt);
+    const now = new Date();
+    if (timeRange === "day") {
+      return logDate.toDateString() === now.toDateString();
+    } else if (timeRange === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return logDate >= weekAgo;
+    } else {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return logDate >= monthAgo;
+    }
+  });
+
+  const totalExerciseMinutes = filteredExercises.reduce((sum, l) => sum + l.duration, 0);
+  const totalCalories = filteredExercises.reduce((sum, l) => sum + (l.caloriesBurned ?? 0), 0);
+  const exerciseCount = filteredExercises.length;
+  const targetMinutes = timeRange === "day" ? 30 : timeRange === "week" ? 150 : 600;
+  const progressPercent = Math.min((totalExerciseMinutes / targetMinutes) * 100, 100);
 
   if (isLoading) {
     return (
@@ -220,6 +248,93 @@ export default function StatsScreen() {
             showPercentage
             sublabel={`${totalXp} / ${nextTierThreshold} pts to next tier`}
           />
+        </Card>
+
+        {/* Exercise Stats Card */}
+        <Card variant="elevated" className="mb-5">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-white text-base font-semibold">Exercise Stats</Text>
+            <View className="flex-row gap-2">
+              {(["day", "week", "month"] as TimeRange[]).map((range) => (
+                <TouchableOpacity
+                  key={range}
+                  className={`px-3 py-1 rounded-full ${
+                    timeRange === range ? "bg-emerald-500" : "bg-slate-700"
+                  }`}
+                  onPress={() => setTimeRange(range)}
+                >
+                  <Text
+                    className={`text-xs font-medium ${
+                      timeRange === range ? "text-slate-900" : "text-slate-300"
+                    }`}
+                  >
+                    {range === "day" ? "1D" : range === "week" ? "1W" : "1M"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Animated circular progress */}
+          <View className="items-center mb-4">
+            <View className="w-36 h-36 rounded-full items-center justify-center relative">
+              <View className="absolute w-32 h-32 rounded-full bg-slate-800" />
+              <View
+                className="absolute w-32 h-32 rounded-full"
+                style={{
+                  borderWidth: 10,
+                  borderColor: "#10B981",
+                  borderTopColor: progressPercent > 25 ? "#10B981" : "transparent",
+                  borderRightColor: progressPercent > 50 ? "#10B981" : "transparent",
+                  borderBottomColor: progressPercent > 75 ? "#10B981" : "transparent",
+                  borderLeftColor: progressPercent > 0 ? "#10B981" : "transparent",
+                  transform: [{ rotate: "-90deg" }],
+                }}
+              />
+              <View className="absolute items-center">
+                <Text className="text-white text-3xl font-bold">{Math.round(progressPercent)}%</Text>
+                <Text className="text-emerald-400 text-xs">Target</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Stats grid */}
+          <View className="flex-row justify-around">
+            <View className="items-center">
+              <View className="w-12 h-12 rounded-full bg-emerald-500/20 items-center justify-center mb-2">
+                <Ionicons name="time-outline" size={24} color="#10B981" />
+              </View>
+              <Text className="text-white text-xl font-bold">{totalExerciseMinutes}</Text>
+              <Text className="text-slate-400 text-xs">minutes</Text>
+            </View>
+            <View className="items-center">
+              <View className="w-12 h-12 rounded-full bg-orange-500/20 items-center justify-center mb-2">
+                <Ionicons name="flame-outline" size={24} color="#F97316" />
+              </View>
+              <Text className="text-white text-xl font-bold">{totalCalories}</Text>
+              <Text className="text-slate-400 text-xs">calories</Text>
+            </View>
+            <View className="items-center">
+              <View className="w-12 h-12 rounded-full bg-purple-500/20 items-center justify-center mb-2">
+                <Ionicons name="fitness-outline" size={24} color="#A855F7" />
+              </View>
+              <Text className="text-white text-xl font-bold">{exerciseCount}</Text>
+              <Text className="text-slate-400 text-xs">sessions</Text>
+            </View>
+          </View>
+
+          <View className="mt-4 bg-slate-800 rounded-lg p-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-slate-400 text-sm">Target Progress</Text>
+              <Text className="text-emerald-400 text-sm font-semibold">{totalExerciseMinutes} / {targetMinutes} min</Text>
+            </View>
+            <ProgressBar
+              progress={progressPercent / 100}
+              color="#10B981"
+              height={6}
+              className="mt-2"
+            />
+          </View>
         </Card>
 
         {/* BMI card */}
