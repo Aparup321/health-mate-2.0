@@ -553,4 +553,13 @@ export const connectionsApi = {
       },
     );
   },
+
+  removeConnection(id: string) {
+    return request<ApiResponse<Record<string, never>>>(
+      `/connections/remove/${id}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
 };

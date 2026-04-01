@@ -1,7 +1,7 @@
 /**
  * Connection tab - Find and invite friends by User ID or username
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -354,6 +353,7 @@ function InboxTab({ refreshKey, setRefreshKey }: { refreshKey: number; setRefres
 function ConnectionsListTab() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -375,6 +375,34 @@ function ConnectionsListTab() {
 
   function formatTime(date: string) {
     return new Date(date).toLocaleDateString([], { month: "short", day: "numeric" });
+  }
+
+  function handleRemovePress(conn: Connection) {
+    Alert.alert(
+      "Remove Friend",
+      `Are you sure you want to remove ${conn.userName} from your friends?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => removeFriend(conn.id, conn.userName),
+        },
+      ]
+    );
+  }
+
+  async function removeFriend(connectionId: string, userName: string) {
+    setRemovingId(connectionId);
+    try {
+      await connectionsApi.removeConnection(connectionId);
+      setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+      Alert.alert("Removed", `${userName} has been removed from your friends`);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to remove friend");
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   if (isLoading) {
@@ -401,18 +429,30 @@ function ConnectionsListTab() {
             {connections.length} Friend{connections.length !== 1 ? "s" : ""}
           </Text>
           {connections.map((conn) => (
-            <View key={conn.id} className="flex-row items-center bg-slate-800 rounded-xl p-4 mb-2 border border-slate-700">
-              <View className="w-12 h-12 rounded-full bg-emerald-500/20 items-center justify-center mr-3">
-                <Text className="text-emerald-400 text-lg font-bold">
-                  {conn.userName.charAt(0).toUpperCase()}
-                </Text>
+            <View key={conn.id} className="bg-slate-800 rounded-xl p-4 mb-2 border border-slate-700">
+              <View className="flex-row items-center">
+                <View className="w-12 h-12 rounded-full bg-emerald-500/20 items-center justify-center mr-3">
+                  <Text className="text-emerald-400 text-lg font-bold">
+                    {conn.userName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-base font-semibold">{conn.userName}</Text>
+                  <Text className="text-slate-500 text-xs">ID: {conn.referralCode}</Text>
+                  <Text className="text-slate-400 text-xs">Connected {formatTime(conn.connectedAt)}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleRemovePress(conn)}
+                  disabled={removingId === conn.id}
+                  className="p-2"
+                >
+                  <Ionicons 
+                    name="person-remove-outline" 
+                    size={20} 
+                    color={removingId === conn.id ? "#64748B" : "#EF4444"} 
+                  />
+                </TouchableOpacity>
               </View>
-              <View className="flex-1">
-                <Text className="text-white text-base font-semibold">{conn.userName}</Text>
-                <Text className="text-slate-500 text-xs">ID: {conn.referralCode}</Text>
-                <Text className="text-slate-400 text-xs">Connected {formatTime(conn.connectedAt)}</Text>
-              </View>
-              <Ionicons name="checkmark-circle" size={24} color="#10B981" />
             </View>
           ))}
         </>

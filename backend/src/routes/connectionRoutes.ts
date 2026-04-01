@@ -12,5 +12,6 @@ router.get("/sent", requireAuth, connectionController.getSentRequests);
 router.get("/connections", requireAuth, connectionController.getConnections);
 router.put("/:id", requireAuth, validateRequest(UpdateConnectionRequestSchema), connectionController.respondToRequest);
 router.delete("/:id", requireAuth, connectionController.cancelRequest);
+router.delete("/remove/:id", requireAuth, connectionController.removeConnection);
 
 export default router;

@@ -167,6 +167,30 @@ class ConnectionController {
       sendSuccessResponse(res, 200, {}, "Request cancelled");
     }
   );
+
+  removeConnection = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req.userId!;
+      const { id } = req.params;
+
+      const connection = await ConnectionRequest.findById(id);
+      if (!connection) {
+        throw new NotFoundError("Connection not found");
+      }
+
+      if (connection.fromUserId !== userId && connection.toUserId !== userId) {
+        throw new ValidationError("You are not part of this connection");
+      }
+
+      if (connection.status !== "accepted") {
+        throw new ConflictError("This is not an active connection");
+      }
+
+      await ConnectionRequest.findByIdAndDelete(id);
+
+      sendSuccessResponse(res, 200, {}, "Friend removed");
+    }
+  );
 }
 
 export default new ConnectionController();
